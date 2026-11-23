@@ -760,6 +760,30 @@ def test_augassign_attribute():
 
 @filecheck_test
 @triton.jit
+def test_logical_ops_non_bool():
+    # `not`, `and` and `or` on non-bool runtime values compare with zero, like `if x:`.
+    # CHECK-LABEL: test_logical_ops_non_bool
+    # CHECK: [[PID:%.*]] = tt.get_program_id x
+    # CHECK: [[NZ:%.*]] = arith.cmpi ne, [[PID]], {{.*}} : i32
+    # CHECK: arith.xori [[NZ]], {{.*}} : i1
+    pid = tl.program_id(0)
+    anchor(not pid)
+    # CHECK: arith.cmpf une, {{.*}} : tensor<4xf32>
+    # CHECK: arith.xori {{.*}} : tensor<4xi1>
+    x = tl.arange(0, 4).to(tl.float32)
+    anchor(not x)
+    # CHECK: arith.cmpi ne, {{.*}} : i32
+    # CHECK: arith.cmpi ne, {{.*}} : i32
+    # CHECK: arith.andi {{.*}} : i1
+    anchor(pid and pid + 1)
+    # CHECK: arith.cmpi ne, {{.*}} : i32
+    # CHECK: arith.cmpi ne, {{.*}} : i32
+    # CHECK: arith.ori {{.*}} : i1
+    anchor(pid or pid + 1)
+
+
+@filecheck_test
+@triton.jit
 def test_retrieve_item():
     # CHECK-LABEL: test_retrieve_item
     # CHECK: %c11_i32 = arith.constant 11 : i32
